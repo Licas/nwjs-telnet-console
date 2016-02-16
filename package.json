@@ -1,0 +1,14 @@
+{
+  "name": "telnetter",
+  "version": "0.0.1",
+  "description": "Desktop app built with nwjs that allows to create a dashboard for rapid telnet check",
+  "main": "index.html",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "morinimanuel@gmail.com",
+  "license": "MIT",
+  "dependencies": {
+  },
+  "devDependencies": {}
+}

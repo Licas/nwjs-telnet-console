@@ -1,0 +1,207 @@
+<html>
+  <head>
+      <title>Telnet Console</title>
+  </head>
+  <body onload="init()">
+      
+      <fieldset>
+          <legend>Telnet</legend>
+          <label for="telnetserver"><span></span>Server</label>
+          <input id="telnetserver"
+                type="text" 
+                placeholder="server">
+          <br>
+        
+          <label for="telnetport"><span></span>Port</label>
+          <input id="telnetport"
+                type="text" 
+                value="22"
+                placeholder="port">
+          <br>
+          
+          <input type="submit" value="telnet" onclick="telnet(document.getElementById('telnetserver').value, document.getElementById('telnetport').value)">
+              
+          <div id="telnetoutput"></div>
+      </fieldset>
+      
+      <br>
+      
+      <fieldset>
+          <legend>Server List</legend>
+          <table id="srvList">
+              <tr>
+                <th>Server</th>
+                <th>Use</th>
+                <th>Remove</th>
+              </tr>
+          </table>
+
+          <label for="saveit">Save list</label>
+          <input type="submit" id="saveit" value="Save" onclick="saveList()"></input>
+          <br>
+          <label for="loadit">Load list</label>
+          <input type="submit" id="loadit" value="Load" onclick="loadList()"></input>
+      </fieldset>
+      <br />
+      <hr />
+
+      <fieldset>
+          <legend>Add a server to list</legend>
+          <label for="server">IP Address/System Name</label>
+          <input id="server"
+                 type="text" 
+                 placeholder="server"></input>
+          <input type="submit" value="Add" onclick="addServer(document.getElementById('server').value)"></input>
+      </fieldset>
+
+      <script>
+        var exec = require('child_process').exec;
+        var fs = require('fs');
+          
+        var nw = require('nw.gui');
+        var win = nw.Window.get();
+        var list = [];
+        var configFile = 'serverList.json';
+          
+        win.focus();
+        
+        String.prototype.contains = function(it) { return this.indexOf(it) != -1; };
+          
+        function saveList() {
+            var jsonList = {"servers":  getNotNullElements(list) };
+           
+            console.log(JSON.stringify(jsonList));
+            fs.writeFile(configFile, JSON.stringify(jsonList), function(err) {
+                if (err) 
+                    throw err;
+              console.log('It\'s saved!');
+            });    
+        }
+          
+        function getNotNullElements(aList) {
+          
+            return aList.filter(function(el){return el != null && el != undefined;});
+        }  
+          
+        function loadList() {
+            clear();
+            
+            var loadedList = fs.readFileSync(configFile, 'utf8');
+            //console.log('Loaded ' + JSON.parse(loadedList).servers);
+            tmpList =  JSON.parse(loadedList).servers;
+            list = getNotNullElements(tmpList);
+            
+             for( var i = 0; i < list.length; i++ ) { 
+                var o = list[i];                
+                updateServerView(o);
+            } 
+        }
+          
+        function telnet(ip, port) {
+            
+            var proc = exec('telnet '+ ip +' '+port, {timeout:1000, killSignal: 'SIGTERM'});
+
+            proc.on('close', function(exitCode, exitSignal) {
+                console.log('process exited with code:' + exitCode +'/signal:'+exitSignal);
+            });
+
+            proc.stdout.on('data', function(chunk) {
+                console.log('received chunk ' + chunk);
+                
+                if(String(chunk).contains("Connected")) {
+                    console.log("Successfully connected to " +ip);
+                    document.getElementById('telnetoutput').textContent = 'Successfully connected to ' +ip;
+                    proc.kill('SIGINT');
+                }                
+            });
+
+            proc.stdout.on('end', function() {
+                console.log("finished collecting data chunks from stdout");
+               // document.getElementById('telnetoutput').textContent = 'RESPONSE: done';
+            });
+
+            proc.stderr.on('data', function(data) {
+                console.log("ERROR: " + data);
+                document.getElementById('telnetoutput').textContent = 'ERR: '+data;
+                proc.kill('SIGINT');
+            });
+
+        }
+          
+        function clear() {
+            list = getNotNullElements(list);
+            for(var i=0; i<list.length; i++) {
+                removeServerFromView(list[i]);
+            }
+        
+            list = [];
+        }
+        
+        function addServer(server) {
+            if(list != null) {
+                list.push(server);
+                updateServerView(server);
+            }
+        }
+          
+        function valorizeserver(server) {
+            console.log("telnet me " + server);
+            document.getElementById("telnetserver").setAttribute("value", server);    
+        }
+          
+        function removeServer(server) {
+            if(server) {
+                removeServerFromView(server);
+            
+                var index = list.indexOf(server);
+                if(index > -1) delete list[index];
+            }
+        }
+          
+        function removeServerFromView(server) {
+            console.log("remove server " + server);
+            var child = document.getElementById(server);
+            
+            document.getElementById("srvList").removeChild(child);   
+        }
+                
+        function init() {
+            //list = ['10.238.233.137','10.238.233.138','10.238.233.139','10.238.233.140'];
+            loadList();
+        }
+          
+        function updateServerView(newServer) {
+            console.log("updating " + newServer);
+            var list2fill = document.getElementById("srvList");
+            
+            var tr = document.createElement("tr");
+            var td_srv = document.createElement("td");
+            var td_use = document.createElement("td");
+            var td_rem = document.createElement("td");
+            
+            var input = document.createElement("input");
+            var input_rem = document.createElement("input");
+
+            input.setAttribute("type","button");
+            input.setAttribute("value","V");
+            input.setAttribute("onclick", "valorizeserver('"+ newServer +"')");
+
+            input_rem.setAttribute("type","button");
+            input_rem.setAttribute("value","X");
+            input_rem.setAttribute("onclick", "removeServer('"+ newServer +"')");
+
+            
+            td_srv.appendChild(document.createTextNode(newServer));
+            td_use.appendChild(input);
+            td_rem.appendChild(input_rem);
+
+            tr.appendChild(td_srv);
+            tr.appendChild(td_use);
+            tr.appendChild(td_rem);
+            tr.setAttribute("id", newServer);
+                            
+            list2fill.appendChild(tr);            
+        }
+        </script>
+  </body>
+</html>
